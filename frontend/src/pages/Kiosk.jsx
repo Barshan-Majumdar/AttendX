@@ -112,7 +112,13 @@ export default function Kiosk() {
               audio={false}
               ref={webcamRef}
               screenshotFormat="image/jpeg"
+              screenshotQuality={0.95}
               width="100%"
+              videoConstraints={{
+                width: 1280,
+                height: 720,
+                facingMode: "user"
+              }}
               style={{ display: 'block' }}
             />
             

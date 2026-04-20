@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database import get_db
-from face_utils import get_face_encoding, match_face
+from face_utils import get_face_encoding, match_face, check_duplicate_face
 from datetime import datetime
 from bson import ObjectId
 import json
@@ -25,7 +25,7 @@ async def register_student(
 ):
     db = get_db()
     
-    # Check if student already exists
+    # Check if roll number already exists
     if db.students.find_one({"roll_number": roll_number}):
         raise HTTPException(status_code=400, detail="Student with this roll number already exists")
         
@@ -34,11 +34,29 @@ async def register_student(
     
     if not encoding:
         raise HTTPException(status_code=400, detail="No face detected in the provided image")
+    
+    # SECURITY: Check if this face already exists in the database
+    existing_students = list(db.students.find({}, {"_id": 1, "name": 1, "face_encoding": 1}))
+    if existing_students:
+        encodings_dict = {str(s["_id"]): s["face_encoding"] for s in existing_students}
+        duplicate_id = check_duplicate_face(encoding, encodings_dict)
+        
+        if duplicate_id:
+            # Find the name of the already-registered student
+            duplicate_student = next(
+                (s for s in existing_students if str(s["_id"]) == duplicate_id), None
+            )
+            duplicate_name = duplicate_student["name"] if duplicate_student else "Unknown"
+            raise HTTPException(
+                status_code=409,
+                detail=f"This face is already registered under the name '{duplicate_name}'. Duplicate registration is not allowed."
+            )
         
     student_doc = {
         "name": name,
         "roll_number": roll_number,
-        "face_encoding": encoding
+        "face_encoding": encoding,
+        "registered_at": datetime.now().isoformat()
     }
     
     result = db.students.insert_one(student_doc)
@@ -52,6 +70,16 @@ def get_students():
         doc["_id"] = str(doc["_id"])
         students.append(doc)
     return students
+
+@app.delete("/api/students/{student_id}")
+def delete_student(student_id: str):
+    db = get_db()
+    result = db.students.delete_one({"_id": ObjectId(student_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Student not found")
+    # Also delete their attendance records
+    db.attendance.delete_many({"student_id": student_id})
+    return {"message": "Student and their attendance records deleted"}
 
 @app.post("/api/attendance/mark")
 async def mark_attendance(file: UploadFile = File(...)):
@@ -78,14 +106,17 @@ async def mark_attendance(file: UploadFile = File(...)):
     current_date = now.strftime("%Y-%m-%d")
     current_time = now.strftime("%H:%M:%S")
     
-    # Check if attendance already marked today
+    # SECURITY: Check if attendance already marked today — block duplicate
     existing = db.attendance.find_one({
         "student_id": matched_id,
         "date": current_date
     })
     
     if existing:
-        return {"message": f"Attendance already marked for {matched_student['name']} today"}
+        raise HTTPException(
+            status_code=409,
+            detail=f"Attendance already marked for {matched_student['name']} today at {existing['time']}. Cannot mark again."
+        )
         
     attendance_doc = {
         "student_id": matched_id,

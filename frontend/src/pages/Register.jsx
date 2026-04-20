@@ -148,7 +148,13 @@ export default function Register() {
                   audio={false}
                   ref={webcamRef}
                   screenshotFormat="image/jpeg"
-                  width={400}
+                  screenshotQuality={0.95}
+                  width={480}
+                  videoConstraints={{
+                    width: 1280,
+                    height: 720,
+                    facingMode: "user"
+                  }}
                   style={{ borderRadius: '8px' }}
                 />
                 <button type="button" className="primary-button" onClick={capture}>Capture Photo</button>
