@@ -28,9 +28,8 @@ app.add_middleware(
 def upload_to_imagekit(image_bytes: bytes, filename: str) -> str:
     """Upload image to ImageKit and return the URL."""
     try:
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
         result = imagekit.files.upload(
-            file=b64_image,
+            file=image_bytes,
             file_name=filename,
             folder="/face_attendance/students/",
         )
