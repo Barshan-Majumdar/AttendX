@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database import get_db
-from face_utils import get_face_encoding, match_face, check_duplicate_face
+from face_utils import get_face_encoding, match_faces, check_duplicate_face
 from datetime import datetime
 from bson import ObjectId
 from imagekitio import ImageKit
@@ -122,43 +122,56 @@ async def mark_attendance(file: UploadFile = File(...)):
         
     encodings_dict = {str(student["_id"]): student["face_encoding"] for student in known_students}
     
-    matched_id = match_face(image_bytes, encodings_dict)
+    matched_ids = match_faces(image_bytes, encodings_dict)
     
-    if not matched_id:
-        raise HTTPException(status_code=404, detail="Face not recognized")
+    if not matched_ids:
+        raise HTTPException(status_code=404, detail="No faces recognized")
         
-    matched_student = next(s for s in known_students if str(s["_id"]) == matched_id)
-    
     now = datetime.now()
     current_date = now.strftime("%Y-%m-%d")
     current_time = now.strftime("%H:%M:%S")
     
-    # SECURITY: Block duplicate attendance
-    existing = db.attendance.find_one({
-        "student_id": matched_id,
-        "date": current_date
-    })
+    marked_students = []
+    already_marked = []
     
-    if existing:
+    for matched_id in matched_ids:
+        matched_student = next(s for s in known_students if str(s["_id"]) == matched_id)
+        
+        # SECURITY: Block duplicate attendance
+        existing = db.attendance.find_one({
+            "student_id": matched_id,
+            "date": current_date
+        })
+        
+        if existing:
+            already_marked.append(matched_student['name'])
+            continue
+            
+        attendance_doc = {
+            "student_id": matched_id,
+            "student_name": matched_student["name"],
+            "student_photo": matched_student.get("photo_url", ""),
+            "date": current_date,
+            "time": current_time
+        }
+        
+        db.attendance.insert_one(attendance_doc)
+        marked_students.append({
+            "student_name": matched_student["name"],
+            "student_photo": matched_student.get("photo_url", ""),
+            "time": current_time
+        })
+        
+    if not marked_students and already_marked:
         raise HTTPException(
             status_code=409,
-            detail=f"Attendance already marked for {matched_student['name']} today at {existing['time']}. Cannot mark again."
+            detail=f"Attendance already marked today for: {', '.join(already_marked)}."
         )
         
-    attendance_doc = {
-        "student_id": matched_id,
-        "student_name": matched_student["name"],
-        "student_photo": matched_student.get("photo_url", ""),
-        "date": current_date,
-        "time": current_time
-    }
-    
-    db.attendance.insert_one(attendance_doc)
     return {
-        "message": "Attendance marked successfully",
-        "student_name": matched_student["name"],
-        "student_photo": matched_student.get("photo_url", ""),
-        "time": current_time
+        "message": f"Successfully marked attendance for {len(marked_students)} student(s)",
+        "marked_students": marked_students,
+        "already_marked": already_marked
     }
 
 @app.get("/api/attendance/today")

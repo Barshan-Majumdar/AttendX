@@ -40,7 +40,14 @@ export default function Kiosk() {
 
       if (res.ok) {
         setStatus('success');
-        setStudentName(data.student_name);
+        
+        if (data.marked_students && data.marked_students.length > 0) {
+          const names = data.marked_students.map(s => s.student_name).join(', ');
+          setStudentName(names);
+        } else {
+          setStudentName(null);
+        }
+        
         setMessage(data.message);
         
         // Reset after 3 seconds
