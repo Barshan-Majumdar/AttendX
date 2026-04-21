@@ -1,21 +1,29 @@
-# Use an image that ALREADY has dlib and opencv installed (No more apt-get errors!)
-FROM valeriansaliou/python-dlib-opencv:v1.0.0
+# Use Ubuntu 22.04
+FROM ubuntu:22.04
 
-# Set the working directory
+# Avoid prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Change mirrors to a more reliable one (Cloudflare) to fix the Exit Code 100
+RUN sed -i 's/archive.ubuntu.com/mirror.cloudflare.com/g' /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y \
+    python3-dlib \
+    python3-opencv \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
 WORKDIR /app
 
 # Copy requirements
 COPY requirements.txt .
 
-# Install the remaining small libraries
-# We use --break-system-packages because the base image has a custom python
-RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
+# Install dependencies
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
-# Copy the rest of the app
+# Copy app
 COPY . .
 
-# Expose port
-EXPOSE 8000
-
-# Run the app
+# Run app
 CMD ["python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
