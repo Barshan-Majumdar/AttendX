@@ -10,7 +10,7 @@ function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-brand">
         <ScanFace size={32} color="var(--accent-primary)" />
-        <span>SentiFace</span>
+        <span>AttendX</span>
       </div>
       <nav>
         <NavLink to="/" className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}>
