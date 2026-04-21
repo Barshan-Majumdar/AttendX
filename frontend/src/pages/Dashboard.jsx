@@ -7,6 +7,17 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('attendance');
 
+  // Helper function to format date to DD-MM-YYYY
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr; // Return original if invalid date
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   const fetchAttendance = async () => {
     setLoading(true);
     try {
@@ -130,7 +141,7 @@ export default function Dashboard() {
                     <td style={{ fontWeight: 500 }}>{r.student_name}</td>
                     <td>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--ink-secondary)' }}>
-                        <Calendar size={12} /> {r.date}
+                        <Calendar size={12} /> {formatDate(r.date)}
                       </span>
                     </td>
                     <td>
@@ -175,7 +186,7 @@ export default function Dashboard() {
                     <td style={{ fontWeight: 500 }}>{s.name}</td>
                     <td><span className="code-chip">{s.roll_number}</span></td>
                     <td style={{ color: 'var(--ink-secondary)', fontSize: '0.8125rem' }}>
-                      {s.registered_at ? new Date(s.registered_at).toLocaleDateString() : '—'}
+                      {formatDate(s.registered_at)}
                     </td>
                     <td>
                       <button className="btn-danger-ghost" onClick={() => deleteStudent(s._id, s.name)} title="Remove student">
