@@ -1,5 +1,5 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+# Use the FULL official Python runtime (more stable for building dlib)
+FROM python:3.11
 
 # Install system dependencies required for dlib and opencv
 RUN apt-get update && apt-get install -y \
