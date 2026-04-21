@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import { Camera, Upload, UserPlus, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import API_URL from '../api';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -47,7 +48,7 @@ export default function Register() {
     formData.append('file', dataURLtoBlob(imageSrc), 'face.jpg');
 
     try {
-      const res = await fetch('http://localhost:8000/api/students/register', {
+      const res = await fetch(`${API_URL}/api/students/register`, {
         method: 'POST',
         body: formData,
       });

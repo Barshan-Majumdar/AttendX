@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, RefreshCw, Users, Trash2, UserCheck, UserX } from 'lucide-react';
+import API_URL from '../api';
 
 export default function Dashboard() {
   const [attendance, setAttendance] = useState([]);
@@ -21,7 +22,7 @@ export default function Dashboard() {
   const fetchAttendance = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/attendance/today');
+      const res = await fetch(`${API_URL}/api/attendance/today`);
       if (res.ok) setAttendance(await res.json());
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -29,7 +30,7 @@ export default function Dashboard() {
 
   const fetchStudents = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/students');
+      const res = await fetch(`${API_URL}/api/students`);
       if (res.ok) setStudents(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -37,7 +38,7 @@ export default function Dashboard() {
   const deleteStudent = async (id, name) => {
     if (!confirm(`Remove "${name}"? This deletes all their records.`)) return;
     try {
-      const res = await fetch(`http://localhost:8000/api/students/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/students/${id}`, { method: 'DELETE' });
       if (res.ok) { fetchStudents(); fetchAttendance(); }
     } catch (e) { console.error(e); }
   };

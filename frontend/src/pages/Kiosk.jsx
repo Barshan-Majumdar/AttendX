@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import { ScanFace, CheckCircle, XCircle, Loader } from 'lucide-react';
+import API_URL from '../api';
 
 export default function Kiosk() {
   const webcamRef = useRef(null);
@@ -29,7 +30,7 @@ export default function Kiosk() {
       const fd = new FormData();
       fd.append('file', dataURLtoBlob(src), 'frame.jpg');
 
-      const res = await fetch('http://localhost:8000/api/attendance/mark', {
+      const res = await fetch(`${API_URL}/api/attendance/mark`, {
         method: 'POST',
         body: fd,
       });
