@@ -53,11 +53,23 @@ def detect_faces_robust(rgb_image):
                 # Convert to integers
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                 
+                face_width = x2 - x1
+                face_height = y2 - y1
+                
+                # Enforce a minimum size to ensure face is "clearly captured"
+                if face_width < 40 or face_height < 40:
+                    logger.debug(f"Ignoring face that is too small: {face_width}x{face_height}")
+                    continue
+                    
+                # Add slight padding (5%) around the detected face for better encoding accuracy
+                pad_w = int(face_width * 0.05)
+                pad_h = int(face_height * 0.05)
+                
                 # Convert to face_recognition format: top, right, bottom, left
-                top = max(0, y1)
-                right = min(rgb_image.shape[1], x2)
-                bottom = min(rgb_image.shape[0], y2)
-                left = max(0, x1)
+                top = max(0, y1 - pad_h)
+                right = min(rgb_image.shape[1], x2 + pad_w)
+                bottom = min(rgb_image.shape[0], y2 + pad_h)
+                left = max(0, x1 - pad_w)
                 
                 face_locations.append((top, right, bottom, left))
                 
@@ -99,8 +111,8 @@ def get_face_encoding(image_bytes: bytes) -> list:
     
     logger.info(f"Face locations: {face_locations}")
     
-    # Get encodings from the processed image
-    encodings = face_recognition.face_encodings(processed_image, known_face_locations=face_locations)
+    # Get encodings from the processed image using 3 jitters for higher accuracy
+    encodings = face_recognition.face_encodings(processed_image, known_face_locations=face_locations, num_jitters=3)
     
     if len(encodings) == 0:
         logger.error("face_encodings returned empty despite face locations being found")
@@ -156,10 +168,10 @@ def match_faces(captured_image_bytes: bytes, known_encodings_dict: dict) -> list
     return matched_student_ids
 
 
-def check_duplicate_face(new_encoding: list, known_encodings_dict: dict, tolerance: float = 0.5) -> str:
+def check_duplicate_face(new_encoding: list, known_encodings_dict: dict, tolerance: float = 0.6) -> str:
     """
     Check if a face encoding already exists in the database.
-    Uses a stricter tolerance (0.5) than matching (0.6) to avoid false positives.
+    Uses a standard tolerance (0.6) to effectively catch duplicates even if the face angle is slightly different.
     Returns the student_id of the duplicate if found, else None.
     """
     if not known_encodings_dict:
