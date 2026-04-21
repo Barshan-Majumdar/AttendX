@@ -1,4 +1,4 @@
-# 🧑‍🎓 SentiFace — AI-Powered Face Attendance System
+# 🧑‍🎓 AttendX — AI-Powered Face Attendance System
 
 A scalable, full-stack face recognition attendance system built for universities and institutions.
 
