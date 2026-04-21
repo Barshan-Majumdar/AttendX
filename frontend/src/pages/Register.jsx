@@ -1,187 +1,183 @@
 import { useState, useRef, useCallback } from 'react';
 import Webcam from 'react-webcam';
-import { Camera, Upload, UserPlus } from 'lucide-react';
+import { Camera, Upload, UserPlus, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 
 export default function Register() {
   const [name, setName] = useState('');
   const [roll, setRoll] = useState('');
   const [status, setStatus] = useState({ type: '', message: '' });
   const [imageSrc, setImageSrc] = useState(null);
-  const [mode, setMode] = useState('capture'); // 'capture' or 'upload'
-  
+  const [mode, setMode] = useState('capture');
+
   const webcamRef = useRef(null);
   const fileInputRef = useRef(null);
 
   const capture = useCallback(() => {
-    const imageSrc = webcamRef.current.getScreenshot();
-    setImageSrc(imageSrc);
+    setImageSrc(webcamRef.current.getScreenshot());
   }, [webcamRef]);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageSrc(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setImageSrc(reader.result);
+    reader.readAsDataURL(file);
   };
 
   const dataURLtoBlob = (dataurl) => {
-    let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
-        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-    while(n--){
-        u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], {type:mime});
-  }
+    const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    const u8 = new Uint8Array(bstr.length);
+    for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
+    return new Blob([u8], { type: mime });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name || !roll || !imageSrc) {
-      setStatus({ type: 'error', message: 'Please fill all fields and provide an image.' });
+      setStatus({ type: 'error', message: 'Please fill all fields and provide a face image.' });
       return;
     }
 
-    setStatus({ type: 'loading', message: 'Registering student...' });
+    setStatus({ type: 'loading', message: 'Processing registration…' });
 
     const formData = new FormData();
     formData.append('name', name);
     formData.append('roll_number', roll);
-    
-    // Convert base64 to file
-    const imageBlob = dataURLtoBlob(imageSrc);
-    formData.append('file', imageBlob, 'face.jpg');
+    formData.append('file', dataURLtoBlob(imageSrc), 'face.jpg');
 
     try {
       const res = await fetch('http://localhost:8000/api/students/register', {
         method: 'POST',
         body: formData,
       });
-      
       const data = await res.json();
-      
+
       if (res.ok) {
-        setStatus({ type: 'success', message: 'Student registered successfully!' });
+        setStatus({ type: 'success', message: `${name} registered successfully!` });
         setName('');
         setRoll('');
         setImageSrc(null);
       } else {
-        setStatus({ type: 'error', message: data.detail || 'Failed to register student.' });
+        setStatus({ type: 'error', message: data.detail || 'Registration failed.' });
       }
-    } catch (error) {
-      setStatus({ type: 'error', message: 'Connection error. Is the backend running?' });
+    } catch {
+      setStatus({ type: 'error', message: 'Cannot connect to backend.' });
     }
   };
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <div className="page-header">
-        <h1 className="page-title">Register Student</h1>
-        <p className="page-subtitle">Add a new student profile and face encoding to the system.</p>
+    <div className="animate-in" style={{ maxWidth: 620, margin: '0 auto' }}>
+      <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+        <h1 className="page-heading">Register Student</h1>
+        <p className="page-desc">Enroll a new student by capturing or uploading their face.</p>
       </div>
 
+      {/* Toast */}
       {status.message && (
-        <div style={{
-          padding: '1rem',
-          borderRadius: '8px',
-          marginBottom: '1.5rem',
-          background: status.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : status.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-          color: status.type === 'error' ? 'var(--accent-error)' : status.type === 'success' ? 'var(--accent-secondary)' : 'var(--accent-primary)',
-          border: `1px solid ${status.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : status.type === 'success' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)'}`
-        }}>
+        <div className={`toast ${
+          status.type === 'error' ? 'toast-error' :
+          status.type === 'success' ? 'toast-success' : 'toast-info'
+        }`}>
+          {status.type === 'success' && <CheckCircle size={16} />}
+          {status.type === 'error' && <AlertCircle size={16} />}
+          {status.type === 'loading' && <Loader size={16} className="spinning" />}
           {status.message}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '2rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
-          <div>
-            <label className="label">Full Name</label>
-            <input 
-              type="text" 
-              className="input-field" 
-              placeholder="e.g. John Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="label">Roll Number</label>
-            <input 
-              type="text" 
-              className="input-field" 
-              placeholder="e.g. CS2026-001"
-              value={roll}
-              onChange={(e) => setRoll(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <label className="label" style={{ margin: 0 }}>Face Image</label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button type="button" className={`secondary-button ${mode === 'capture' ? 'active' : ''}`} onClick={() => setMode('capture')} style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-                <Camera size={14} style={{ marginRight: '0.5rem', display: 'inline' }} />
-                Camera
-              </button>
-              <button type="button" className={`secondary-button ${mode === 'upload' ? 'active' : ''}`} onClick={() => setMode('upload')} style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-                <Upload size={14} style={{ marginRight: '0.5rem', display: 'inline' }} />
-                Upload
-              </button>
+      <form onSubmit={handleSubmit}>
+        {/* Step 1: Info */}
+        <div className="card" style={{ marginBottom: '0.75rem' }}>
+          <div className="card-body">
+            <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ink-muted)', marginBottom: '0.8rem' }}>
+              Step 1 — Student Info
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label className="form-label">Full Name</label>
+                <input className="form-input" placeholder="e.g. John Doe" value={name} onChange={e => setName(e.target.value)} />
+              </div>
+              <div>
+                <label className="form-label">Roll Number</label>
+                <input className="form-input" placeholder="e.g. CS2026-001" value={roll} onChange={e => setRoll(e.target.value)} />
+              </div>
             </div>
           </div>
+        </div>
 
-          <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '300px', justifyContent: 'center', border: '1px dashed var(--border-color)' }}>
-            {imageSrc ? (
-              <div style={{ position: 'relative' }}>
-                <img src={imageSrc} alt="Captured face" style={{ borderRadius: '8px', maxHeight: '300px' }} />
-                <button type="button" onClick={() => setImageSrc(null)} style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px' }}>
-                  Retake
+        {/* Step 2: Face */}
+        <div className="card" style={{ marginBottom: '0.75rem' }}>
+          <div className="card-body">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ink-muted)' }}>
+                Step 2 — Face Capture
+              </div>
+              <div className="toggle-group">
+                <button type="button" className={`toggle-btn ${mode === 'capture' ? 'active' : ''}`} onClick={() => setMode('capture')}>
+                  <Camera size={13} /> Camera
+                </button>
+                <button type="button" className={`toggle-btn ${mode === 'upload' ? 'active' : ''}`} onClick={() => setMode('upload')}>
+                  <Upload size={13} /> Upload
                 </button>
               </div>
-            ) : mode === 'capture' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                <Webcam
-                  audio={false}
-                  ref={webcamRef}
-                  screenshotFormat="image/jpeg"
-                  screenshotQuality={0.95}
-                  width={480}
-                  videoConstraints={{
-                    width: 1280,
-                    height: 720,
-                    facingMode: "user"
-                  }}
-                  style={{ borderRadius: '8px' }}
-                />
-                <button type="button" className="primary-button" onClick={capture}>Capture Photo</button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                <Upload size={48} color="var(--text-secondary)" />
-                <p style={{ color: 'var(--text-secondary)' }}>Click to upload an image</p>
-                <input 
-                  type="file" 
-                  accept="image/jpeg, image/png" 
-                  ref={fileInputRef} 
-                  onChange={handleFileUpload}
-                  style={{ display: 'none' }}
-                />
-                <button type="button" className="secondary-button" onClick={() => fileInputRef.current.click()}>Select File</button>
-              </div>
-            )}
+            </div>
+
+            <div className="dropzone">
+              {imageSrc ? (
+                <div style={{ position: 'relative' }}>
+                  <img src={imageSrc} alt="Face" style={{ borderRadius: 'var(--radius-md)', maxHeight: 260 }} />
+                  <button
+                    type="button"
+                    onClick={() => setImageSrc(null)}
+                    style={{
+                      position: 'absolute', top: 8, right: 8,
+                      background: 'rgba(0,0,0,0.55)', color: '#fff',
+                      padding: '0.3rem 0.7rem', borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.75rem', fontWeight: 500, border: 'none', cursor: 'pointer',
+                      backdropFilter: 'blur(4px)'
+                    }}
+                  >
+                    Retake
+                  </button>
+                </div>
+              ) : mode === 'capture' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', width: '100%' }}>
+                  <Webcam
+                    audio={false}
+                    ref={webcamRef}
+                    screenshotFormat="image/jpeg"
+                    screenshotQuality={0.95}
+                    width="100%"
+                    videoConstraints={{ width: 1280, height: 720, facingMode: 'user' }}
+                    style={{ borderRadius: 'var(--radius-md)', display: 'block' }}
+                  />
+                  <button type="button" className="btn btn-primary" onClick={capture}>
+                    <Camera size={15} /> Capture
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', padding: '1.5rem' }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)', background: 'var(--accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Upload size={22} color="var(--accent)" />
+                  </div>
+                  <p style={{ color: 'var(--ink-secondary)', fontSize: '0.8125rem' }}>Select an image file</p>
+                  <input type="file" accept="image/jpeg,image/png" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} />
+                  <button type="button" className="btn btn-secondary" onClick={() => fileInputRef.current.click()}>
+                    Browse Files
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <button type="submit" className="primary-button" style={{ width: '100%' }} disabled={status.type === 'loading'}>
-          {status.type === 'loading' ? 'Processing...' : (
-            <>
-              <UserPlus size={18} />
-              Register Student
-            </>
+        {/* Submit */}
+        <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.65rem' }} disabled={status.type === 'loading'}>
+          {status.type === 'loading' ? (
+            <><Loader size={15} className="spinning" /> Processing…</>
+          ) : (
+            <><UserPlus size={15} /> Register Student</>
           )}
         </button>
       </form>

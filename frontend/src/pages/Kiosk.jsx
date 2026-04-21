@@ -1,196 +1,150 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Webcam from 'react-webcam';
-import { ScanFace, CheckCircle, XCircle } from 'lucide-react';
+import { ScanFace, CheckCircle, XCircle, Loader } from 'lucide-react';
 
 export default function Kiosk() {
   const webcamRef = useRef(null);
-  const [status, setStatus] = useState('idle'); // idle, scanning, success, error
-  const [message, setMessage] = useState('Position your face in the frame');
+  const [status, setStatus] = useState('idle');
+  const [message, setMessage] = useState('Waiting for a face…');
   const [studentName, setStudentName] = useState(null);
-  
+
   const dataURLtoBlob = (dataurl) => {
-    let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
-        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-    while(n--){
-        u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], {type:mime});
-  }
+    const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    const u8 = new Uint8Array(bstr.length);
+    for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
+    return new Blob([u8], { type: mime });
+  };
 
   const captureAndRecognize = useCallback(async () => {
     if (status === 'success' || status === 'scanning') return;
-    
-    const imageSrc = webcamRef.current?.getScreenshot();
-    if (!imageSrc) return;
+
+    const src = webcamRef.current?.getScreenshot();
+    if (!src) return;
 
     setStatus('scanning');
-    setMessage('Scanning face...');
+    setMessage('Scanning…');
 
     try {
-      const formData = new FormData();
-      const imageBlob = dataURLtoBlob(imageSrc);
-      formData.append('file', imageBlob, 'frame.jpg');
+      const fd = new FormData();
+      fd.append('file', dataURLtoBlob(src), 'frame.jpg');
 
       const res = await fetch('http://localhost:8000/api/attendance/mark', {
         method: 'POST',
-        body: formData,
+        body: fd,
       });
-
       const data = await res.json();
 
       if (res.ok) {
         setStatus('success');
-        
-        if (data.marked_students && data.marked_students.length > 0) {
-          const names = data.marked_students.map(s => s.student_name).join(', ');
-          setStudentName(names);
+        if (data.marked_students?.length > 0) {
+          setStudentName(data.marked_students.map(s => s.student_name).join(', '));
         } else {
           setStudentName(null);
         }
-        
         setMessage(data.message);
-        
-        // Reset after 3 seconds
-        setTimeout(() => {
-          setStatus('idle');
-          setStudentName(null);
-          setMessage('Position your face in the frame');
-        }, 3000);
+        setTimeout(() => { setStatus('idle'); setStudentName(null); setMessage('Waiting for a face…'); }, 3500);
       } else {
         setStatus('error');
-        setMessage(data.detail || 'Face not recognized');
-        
-        // Retry quickly if no face found, or wait longer if recognized but error
-        setTimeout(() => {
-          setStatus('idle');
-          setMessage('Position your face in the frame');
-        }, 2000);
+        setMessage(data.detail || 'Not recognized');
+        setTimeout(() => { setStatus('idle'); setMessage('Waiting for a face…'); }, 2000);
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       setStatus('error');
-      setMessage('Connection error to backend');
-      
-      setTimeout(() => {
-        setStatus('idle');
-        setMessage('Position your face in the frame');
-      }, 3000);
+      setMessage('Connection error');
+      setTimeout(() => { setStatus('idle'); setMessage('Waiting for a face…'); }, 3000);
     }
-  }, [status, webcamRef]);
+  }, [status]);
 
-  // Set up periodic scanning
   useEffect(() => {
     if (status === 'idle') {
-      const interval = setInterval(() => {
-        captureAndRecognize();
-      }, 1500); // Attempt scan every 1.5 seconds when idle
-      
-      return () => clearInterval(interval);
+      const id = setInterval(captureAndRecognize, 1500);
+      return () => clearInterval(id);
     }
   }, [status, captureAndRecognize]);
 
+  // Dynamic styles
+  const borderMap = {
+    idle: 'var(--border)',
+    scanning: 'var(--accent)',
+    success: 'var(--positive)',
+    error: 'var(--negative)',
+  };
+
+  const stripBg = {
+    idle: 'var(--surface-2)',
+    scanning: 'var(--accent-subtle)',
+    success: 'var(--positive-subtle)',
+    error: 'var(--negative-subtle)',
+  };
+
+  const stripColor = {
+    idle: 'var(--ink-secondary)',
+    scanning: 'var(--accent)',
+    success: 'var(--positive)',
+    error: 'var(--negative)',
+  };
+
+  const stripBorder = {
+    idle: 'var(--border)',
+    scanning: '#c7d2fe',
+    success: '#a7f3d0',
+    error: '#fecaca',
+  };
+
   return (
-    <div className="animate-fade-in" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div className="page-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        <h1 className="page-title">Live Attendance Kiosk</h1>
-        <p className="page-subtitle">Walk up to the camera to automatically mark your attendance.</p>
+    <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+        <h1 className="page-heading">Live Kiosk</h1>
+        <p className="page-desc">Face the camera to mark attendance automatically.</p>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <div style={{ position: 'relative', width: '100%', maxWidth: '720px' }}>
-          
-          <div style={{ 
-            borderRadius: '24px', 
-            overflow: 'hidden', 
-            border: `4px solid ${
-              status === 'success' ? 'var(--accent-secondary)' : 
-              status === 'error' ? 'var(--accent-error)' : 
-              status === 'scanning' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)'
-            }`,
-            boxShadow: `0 0 40px ${
-              status === 'success' ? 'rgba(16, 185, 129, 0.4)' : 
-              status === 'error' ? 'rgba(239, 68, 68, 0.4)' : 
-              status === 'scanning' ? 'rgba(59, 130, 246, 0.4)' : 'transparent'
-            }`,
-            transition: 'all 0.3s ease',
-            position: 'relative'
-          }}>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+        <div style={{ width: '100%', maxWidth: 580 }}>
+
+          {/* Camera */}
+          <div className="camera-frame" style={{ borderColor: borderMap[status] }}>
             <Webcam
               audio={false}
               ref={webcamRef}
               screenshotFormat="image/jpeg"
               screenshotQuality={0.95}
               width="100%"
-              videoConstraints={{
-                width: 1280,
-                height: 720,
-                facingMode: "user"
-              }}
+              videoConstraints={{ width: 1280, height: 720, facingMode: 'user' }}
               style={{ display: 'block' }}
             />
-            
-            {/* Scanning Overlay Animation */}
-            {status === 'scanning' && (
-              <div style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0,
-                height: '4px',
-                background: 'var(--accent-primary)',
-                boxShadow: '0 0 10px var(--accent-primary)',
-                animation: 'scan-line 2s infinite linear'
-              }} />
-            )}
-            
-            {/* Status Overlay */}
-            <div style={{
-              position: 'absolute',
-              bottom: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: 'rgba(0,0,0,0.7)',
-              backdropFilter: 'blur(10px)',
-              padding: '1rem 2rem',
-              borderRadius: '999px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              border: '1px solid rgba(255,255,255,0.1)'
-            }}>
-              {status === 'idle' && <ScanFace size={24} color="var(--text-secondary)" />}
-              {status === 'scanning' && <ScanFace size={24} color="var(--accent-primary)" className="spinning" />}
-              {status === 'success' && <CheckCircle size={24} color="var(--accent-secondary)" />}
-              {status === 'error' && <XCircle size={24} color="var(--accent-error)" />}
-              
-              <div>
-                <div style={{ 
-                  fontWeight: '600', 
-                  color: status === 'success' ? 'var(--accent-secondary)' : 
-                         status === 'error' ? 'var(--accent-error)' : 'white' 
-                }}>
-                  {message}
-                </div>
-                {studentName && <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Welcome, {studentName}</div>}
-              </div>
-            </div>
+            {status === 'scanning' && <div className="scan-bar" />}
           </div>
-          
+
+          {/* Status Strip */}
+          <div
+            className="status-strip"
+            style={{
+              background: stripBg[status],
+              color: stripColor[status],
+              border: `1px solid ${stripBorder[status]}`,
+            }}
+          >
+            {status === 'idle' && <ScanFace size={18} />}
+            {status === 'scanning' && <Loader size={18} className="spinning" />}
+            {status === 'success' && <CheckCircle size={18} />}
+            {status === 'error' && <XCircle size={18} />}
+
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{message}</div>
+              {studentName && (
+                <div style={{ fontSize: '0.75rem', marginTop: 2, opacity: 0.8 }}>
+                  Welcome, {studentName}
+                </div>
+              )}
+            </div>
+
+            {status === 'idle' && (
+              <span className="pulsing" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--positive)', flexShrink: 0 }} />
+            )}
+          </div>
         </div>
       </div>
-      
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes scan-line {
-          0% { top: 0; }
-          50% { top: 100%; }
-          100% { top: 0; }
-        }
-        .spinning {
-          animation: spin 2s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}} />
     </div>
   );
 }
