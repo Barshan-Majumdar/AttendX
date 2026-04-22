@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database import get_db
 from face_utils import get_face_encoding, match_faces, check_duplicate_face
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from imagekitio import ImageKit
 from dotenv import load_dotenv
@@ -101,7 +101,7 @@ async def register_student(
         "roll_number": roll_number,
         "face_encoding": encoding,
         "photo_url": photo_url or "",
-        "registered_at": datetime.now().isoformat()
+        "registered_at": datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat()
     }
     
     result = db.students.insert_one(student_doc)
@@ -150,7 +150,7 @@ async def mark_attendance(file: UploadFile = File(...)):
     if not matched_ids:
         raise HTTPException(status_code=404, detail="No faces recognized")
         
-    now = datetime.now()
+    now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
     current_date = now.strftime("%Y-%m-%d")
     current_time = now.strftime("%H:%M:%S")
     
@@ -200,7 +200,7 @@ async def mark_attendance(file: UploadFile = File(...)):
 @app.get("/api/attendance/today")
 def get_today_attendance():
     db = get_db()
-    current_date = datetime.now().strftime("%Y-%m-%d")
+    current_date = datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%Y-%m-%d")
     records = []
     for doc in db.attendance.find({"date": current_date}):
         doc["_id"] = str(doc["_id"])
