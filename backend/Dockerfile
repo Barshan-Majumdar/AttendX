@@ -9,7 +9,7 @@ RUN sed -i 's/archive.ubuntu.com/mirror.cloudflare.com/g' /etc/apt/sources.list 
     apt-get update && \
     apt-get install -y \
     python3-dlib \
-    python3-opencv \
+    libglib2.0-0 \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
