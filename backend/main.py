@@ -25,6 +25,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def ping_server():
+    """Returns a tiny response to keep cron jobs happy without 'output too large' errors."""
+    return {"status": "awake"}
+
 def upload_to_imagekit(image_bytes: bytes, filename: str) -> str:
     """Upload image to ImageKit and return the URL."""
     try:
