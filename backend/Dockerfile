@@ -19,7 +19,13 @@ WORKDIR /app
 # Copy requirements
 COPY requirements.txt .
 
-# Install dependencies
+# Install PyTorch CPU version first to save massive amounts of RAM and disk space
+RUN pip3 install --no-cache-dir --break-system-packages torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Install face-recognition without dependencies to prevent pip from building dlib from source
+RUN pip3 install --no-cache-dir --break-system-packages --no-deps face-recognition==1.3.0
+
+# Install remaining dependencies
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Copy app
