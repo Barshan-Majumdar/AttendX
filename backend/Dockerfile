@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install only the necessary system libraries for OpenCV and Dlib
 RUN apt-get update && \
-    apt-get install -y libglib2.0-0 libgl1-mesa-glx libxcb1 && \
+    apt-get install -y libglib2.0-0 && \
     rm -rf /var/lib/apt/lists/*
 
 # Set working directory
