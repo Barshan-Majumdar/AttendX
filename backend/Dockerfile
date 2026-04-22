@@ -1,17 +1,13 @@
-# Use Ubuntu 22.04
-FROM ubuntu:22.04
+# Use official Python slim image which is much smaller and avoids Ubuntu mirror issues
+FROM python:3.10-slim
 
 # Avoid prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Change mirrors to a more reliable one (Cloudflare) to fix the Exit Code 100
-RUN sed -i 's/archive.ubuntu.com/mirror.cloudflare.com/g' /etc/apt/sources.list && \
-    apt-get update && \
-    apt-get install -y \
-    python3-dlib \
-    libglib2.0-0 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+# Install only the necessary system libraries for OpenCV headless
+RUN apt-get update && \
+    apt-get install -y libglib2.0-0 && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -20,16 +16,19 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install PyTorch CPU version first to save massive amounts of RAM and disk space
-RUN pip3 install --no-cache-dir --break-system-packages torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-# Install face-recognition without dependencies to prevent pip from building dlib from source
-RUN pip3 install --no-cache-dir --break-system-packages --no-deps face-recognition==1.3.0
+# Install dlib-bin (Pre-compiled dlib) to avoid building from source
+RUN pip install --no-cache-dir dlib-bin
+
+# Install face-recognition without dependencies so it doesn't trigger a dlib source build
+RUN pip install --no-cache-dir --no-deps face-recognition==1.3.0
 
 # Install remaining dependencies
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy app
 COPY . .
 
 # Run app
-CMD ["python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
