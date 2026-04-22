@@ -6,6 +6,7 @@ from datetime import datetime
 from bson import ObjectId
 from imagekitio import ImageKit
 from dotenv import load_dotenv
+import asyncio
 import base64
 import os
 
@@ -64,7 +65,13 @@ async def register_student(
         raise HTTPException(status_code=400, detail="Student with this roll number already exists")
         
     image_bytes = await file.read()
-    encoding = get_face_encoding(image_bytes)
+    
+    # VULNERABILITY FIX: Prevent Memory Exhaustion (OOM) on server
+    if len(image_bytes) > 5 * 1024 * 1024: # 5MB limit
+        raise HTTPException(status_code=413, detail="Image size exceeds 5MB limit. Please upload a smaller image.")
+        
+    # VULNERABILITY FIX: Prevent Event Loop Blocking (DoS)
+    encoding = await asyncio.to_thread(get_face_encoding, image_bytes)
     
     if not encoding:
         raise HTTPException(status_code=400, detail="No face detected in the provided image")
@@ -85,9 +92,9 @@ async def register_student(
                 detail=f"This face is already registered under the name '{duplicate_name}'. Duplicate registration is not allowed."
             )
     
-    # Upload student photo to ImageKit
+    # Upload student photo to ImageKit (Off-loaded to thread to prevent blocking)
     safe_name = name.replace(" ", "_").lower()
-    photo_url = upload_to_imagekit(image_bytes, f"{safe_name}_{roll_number}.jpg")
+    photo_url = await asyncio.to_thread(upload_to_imagekit, image_bytes, f"{safe_name}_{roll_number}.jpg")
     
     student_doc = {
         "name": name,
@@ -127,13 +134,18 @@ async def mark_attendance(file: UploadFile = File(...)):
     db = get_db()
     image_bytes = await file.read()
     
+    # VULNERABILITY FIX: Prevent Memory Exhaustion (OOM)
+    if len(image_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image size exceeds 5MB limit.")
+    
     known_students = list(db.students.find({}, {"_id": 1, "name": 1, "face_encoding": 1, "photo_url": 1}))
     if not known_students:
         raise HTTPException(status_code=404, detail="No students registered yet")
         
     encodings_dict = {str(student["_id"]): student["face_encoding"] for student in known_students}
     
-    matched_ids = match_faces(image_bytes, encodings_dict)
+    # VULNERABILITY FIX: Prevent Event Loop Blocking (DoS)
+    matched_ids = await asyncio.to_thread(match_faces, image_bytes, encodings_dict)
     
     if not matched_ids:
         raise HTTPException(status_code=404, detail="No faces recognized")

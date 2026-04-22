@@ -38,7 +38,7 @@ def detect_faces_robust(rgb_image):
         # YOLOv8 expects an image (numpy array is fine, RGB or BGR)
         results = yolo_model(rgb_image, verbose=False)
         
-        face_locations = []
+        faces_with_areas = []
         for r in results:
             boxes = r.boxes
             for box in boxes:
@@ -71,7 +71,12 @@ def detect_faces_robust(rgb_image):
                 bottom = min(rgb_image.shape[0], y2 + pad_h)
                 left = max(0, x1 - pad_w)
                 
-                face_locations.append((top, right, bottom, left))
+                area = face_width * face_height
+                faces_with_areas.append((area, (top, right, bottom, left)))
+                
+        # Sort faces by area descending so the largest face is always first
+        faces_with_areas.sort(key=lambda x: x[0], reverse=True)
+        face_locations = [loc for area, loc in faces_with_areas]
                 
         if face_locations:
             logger.info(f"YOLOv8 found {len(face_locations)} face(s)")
@@ -141,7 +146,8 @@ def match_faces(captured_image_bytes: bytes, known_encodings_dict: dict) -> list
     if not face_locations:
         return []
     
-    encodings = face_recognition.face_encodings(processed_image, known_face_locations=face_locations)
+    # Use num_jitters=2 to get a more robust reading from lower-quality kiosk cameras
+    encodings = face_recognition.face_encodings(processed_image, known_face_locations=face_locations, num_jitters=2)
     if len(encodings) == 0:
         return []
         
@@ -154,8 +160,8 @@ def match_faces(captured_image_bytes: bytes, known_encodings_dict: dict) -> list
     matched_student_ids = []
     
     for captured_encoding in encodings:
-        # Compare with tolerance
-        matches = face_recognition.compare_faces(known_encs, captured_encoding, tolerance=0.6)
+        # Compare with tolerance 0.53 (slightly more forgiving for camera differences than 0.5, but safer than 0.6)
+        matches = face_recognition.compare_faces(known_encs, captured_encoding, tolerance=0.53)
         if True in matches:
             face_distances = face_recognition.face_distance(known_encs, captured_encoding)
             best_match_index = np.argmin(face_distances)
@@ -168,10 +174,10 @@ def match_faces(captured_image_bytes: bytes, known_encodings_dict: dict) -> list
     return matched_student_ids
 
 
-def check_duplicate_face(new_encoding: list, known_encodings_dict: dict, tolerance: float = 0.6) -> str:
+def check_duplicate_face(new_encoding: list, known_encodings_dict: dict, tolerance: float = 0.5) -> str:
     """
     Check if a face encoding already exists in the database.
-    Uses a standard tolerance (0.6) to effectively catch duplicates even if the face angle is slightly different.
+    Uses a standard tolerance (0.5) to effectively catch duplicates even if the face angle is slightly different.
     Returns the student_id of the duplicate if found, else None.
     """
     if not known_encodings_dict:
