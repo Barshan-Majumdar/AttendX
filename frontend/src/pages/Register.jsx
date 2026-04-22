@@ -94,7 +94,7 @@ export default function Register() {
             <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ink-muted)', marginBottom: '0.8rem' }}>
               Step 1 — Student Info
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
               <div>
                 <label className="form-label">Full Name</label>
                 <input className="form-input" placeholder="e.g. John Doe" value={name} onChange={e => setName(e.target.value)} />
@@ -110,7 +110,7 @@ export default function Register() {
         {/* Step 2: Face */}
         <div className="card" style={{ marginBottom: '0.75rem' }}>
           <div className="card-body">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.8rem' }}>
               <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ink-muted)' }}>
                 Step 2 — Face Capture
               </div>
