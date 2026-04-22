@@ -4,9 +4,9 @@ FROM python:3.10-slim
 # Avoid prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install only the necessary system libraries for OpenCV headless
+# Install only the necessary system libraries for OpenCV and Dlib
 RUN apt-get update && \
-    apt-get install -y libglib2.0-0 && \
+    apt-get install -y libglib2.0-0 libgl1-mesa-glx libxcb1 && \
     rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -25,7 +25,8 @@ RUN pip install --no-cache-dir dlib-bin
 RUN pip install --no-cache-dir --no-deps face-recognition==1.3.0
 
 # Install remaining dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip uninstall -y opencv-python
 
 # Copy app
 COPY . .
