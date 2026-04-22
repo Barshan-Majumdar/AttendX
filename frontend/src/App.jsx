@@ -10,7 +10,7 @@ function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <ScanFace size={18} color="#fff" />
+          <ScanFace size={24} className="neon-icon" />
         </div>
         <span className="sidebar-title">AttendX</span>
       </div>
