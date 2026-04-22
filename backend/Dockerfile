@@ -26,7 +26,8 @@ RUN pip install --no-cache-dir --no-deps face-recognition==1.3.0
 
 # Install remaining dependencies
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip uninstall -y opencv-python
+    pip uninstall -y opencv-python && \
+    pip install --no-cache-dir opencv-python-headless
 
 # Copy app
 COPY . .
